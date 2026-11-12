@@ -1,0 +1,11 @@
+# Python environments and caches
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.DS_Store
+
+# Keep the supplied market data local unless redistribution rights are confirmed
+data/XAUUSD_D1.csv
