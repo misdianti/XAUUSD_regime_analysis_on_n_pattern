@@ -170,15 +170,24 @@ The matched-regime mapping was fixed in advance for this comparison: Bullish N â
 
 **Aggregate comparison:** the matched filter reduced the valid trade count from 2,946 to 977. Average R per trade moved from -0.041R to +0.003R and profit factor moved from 0.940 to 1.005. The filtered aggregate was only marginally positive before costs.
 
-![Cumulative R: no regime filter vs matched-regime filter](assets/h1_cumulative_r_filter_comparison.png)
+## Cumulative Performance: Unfiltered vs Regime-Filtered vs Selected Strategies
 
-Interpretation by strategy:
+The chart compares three cumulative Net R performance curves:
 
-- Bullish N improved from -6.69R unfiltered to +29.54R in the matched Bullish subset.
-- Bearish N remained negative in the matched Bearish subset (-57.41R).
-- Ranging N had a higher average R per trade in Sideways conditions, but its matched subset contained fewer trades and lower total Net R than the unfiltered strategy.
+1. **Unfiltered:** All valid Bullish N, Bearish N, and Ranging N trades.
+2. **Matched-Regime Filter:** Bullish N in Bullish regimes, Bearish N in Bearish regimes, and Ranging N in Sideways regimes.
+3. **Selected Strategies:** Bullish N in Bullish regimes and Ranging N in Sideways regimes. Bearish N trades are excluded.
 
-The filter is a useful research hypothesis, not a validated improvement. Net R totals should be interpreted alongside trade count, average R, profit factor, capital constraints, and execution costs.
+![H1 Cumulative Net R Performance Comparison](assets/h1_cumulative_r_three_way_comparison.png)
+
+### Interpretation Notes
+
+- Returns are grouped by trade exit timestamp before calculating cumulative R.
+- `OPEN_AT_END` trades are included as final mark-to-market observations, not as realized closed trades.
+- These are aggregate trade-level curves, not a shared-capital portfolio simulation. They do not enforce simultaneous-position limits, capital allocation, or margin constraints.
+- R represents a risk unit, not a currency amount or percentage return.
+- Trading costs, including spread, commission, swap, and slippage, are excluded.
+- Historical results are exploratory backtest results, not evidence of a validated trading system.
 
 ## 8. Key limitations
 
