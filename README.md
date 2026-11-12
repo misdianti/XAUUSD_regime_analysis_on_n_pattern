@@ -1,166 +1,252 @@
-# XAUUSD D1 Quantitative Research: N-Method Backtest & Market Regime Analysis
+# XAUUSD H1 Quantitative Research: N-Method and Baseline Regime Detection
 
-A reproducible Python research project that backtests three rule-based N-Method strategy variants on XAUUSD daily data, builds a simple trend/regime baseline, and evaluates strategy performance conditional on the detected regime.
+## Research status
 
-> **Research project, not investment advice.** Results are historical simulations, not live trading results or a promise of future performance. The strategy rules are an operational interpretation and are not verified as an official/proprietary Traders Family implementation.
+**The current results are historical exploratory backtest results, not a validated trading system.** They are not evidence of live profitability and should not be used as a standalone basis for risking capital.
 
-## Research questions
+### Central research question
 
-1. Can a simple and interpretable model classify XAUUSD D1 into Bullish, Bearish, and Sideways regimes?
-2. How do Bullish N, Bearish N, and Ranging N perform within each detected regime?
-3. Does a simple matched-regime filter improve the original unfiltered N-Method results?
+> **Does regime classification improve the N-Method's risk-adjusted performance on data that was never used to design the rules?**
 
-## Dataset
+This H1 study repeats the earlier D1 methodology using the supplied hourly XAUUSD OHLCV dataset.
 
-- Instrument: XAUUSD (Gold vs US Dollar)
-- Timeframe: 1 day (D1)
-- Sample used in the current analysis: **1 February 2010 – 11 November 2026**
-- Number of daily bars: **5,221**
-- Input format: headerless OHLCV CSV (`Date, Open, High, Low, Close, Volume`)
+## Executive summary
 
-The project bundle contains the local source CSV used to generate the results. It is excluded from Git commits by default; see [`data/README.md`](data/README.md). Before publishing a public repository, confirm the source data's redistribution rights. The notebooks expect the file at `data/XAUUSD_D1.csv`.
+- Source data: **100,000 hourly bars**, from **2010-02-22 18:00:00** through **2026-11-12 06:00:00**.
+- Three N-Method variants were tested: Bullish N, Bearish N, and Ranging N.
+- Baseline regime detection uses EMA(50), EMA(200), and ADX(14).
+- The unfiltered strategies generated **2,946 valid trades** (ambiguous OCO triggers excluded).
+- Combined unfiltered performance was **-121.39R**, with a **0.940 profit factor**.
+- The pre-defined matched-regime subset retained **977 trades** and returned **+3.13R** with a **1.005 profit factor**. This is close to breakeven before trading costs and is not conclusive evidence of an edge.
 
-## Methodology
+## 1. Dataset and data quality
 
-### 1. N-Method strategy implementation
+| Item | Value |
+|---|---|
+| Instrument | XAUUSD |
+| Timeframe | H1 |
+| Source file | `data/XAUUSD_H1.csv` |
+| Rows after parsing | 100,000 |
+| First timestamp | 2010-02-22 18:00:00 |
+| Last timestamp | 2026-11-12 06:00:00 |
+| Number of columns | 6 (Date, Open, High, Low, Close, Volume) |
+| Duplicate timestamps removed | 0 |
+| Invalid OHLC bars | 0 |
+| Timestamp timezone | Not specified in the supplied CSV |
 
-The first notebook implements three variants using confirmed swing pivots:
+The source CSV is headerless. Volume is retained but not used by the strategy or regime model. Timestamp timezone and vendor-specific volume semantics have not been independently established.
 
-- **Bullish N:** P1 swing low → P2 swing high → P3 higher swing low; buy-stop above P2, stop-loss below P3.
-- **Bearish N:** P1 swing high → P2 swing low → P3 lower swing high; sell-stop below P2, stop-loss above P3.
-- **Ranging N:** two tests of similar highs and lows; opposing breakout orders are managed with OCO logic.
+## 2. Methodology
 
-Default settings include 3 bars on both sides for pivot confirmation, 0.05 ATR entry/stop buffers, 20-bar pending-order expiry, and a fixed 2R take-profit target. If stop-loss and take-profit are both touched in one daily candle, the backtest assumes the stop-loss was hit first. If both sides of an OCO range order trigger in the same candle, the setup is marked ambiguous and excluded from performance statistics.
+### 2.1 N-Method strategy rules
 
-**Rule-source caveat:** Stop placement is based on a practical interpretation of general chart-pattern guidance, not a verified copy of an official N-Method playbook. See the detailed note in `01_N_Method_Backtest.ipynb` and the [Traders Family chart-pattern article](https://tradersfamily.id/3-jenis-utama-chart-pattern-dalam-trading/).
+| Strategy | Pattern | Entry | Stop-loss |
+|---|---|---|---|
+| Bullish N | P1 swing low → P2 swing high → P3 higher swing low | Buy stop above P2 | Below P3 |
+| Bearish N | P1 swing high → P2 swing low → P3 lower swing high | Sell stop below P2 | Above P3 |
+| Ranging N | Two similar highs and two similar lows | OCO breakout orders beyond both boundaries | Beyond the opposite range boundary |
 
-### 2. Baseline regime classifier
+Take-profit is fixed at **2R**. A pivot requires 3 bars on its left and 3 bars on its right and is only available after the right-side confirmation bars have closed. Entry orders become active on the next bar and expire after 20 H1 bars. Each strategy is backtested independently with one position at a time.
 
-A deliberately simple rule-based model is used as a first benchmark:
+This is an operational interpretation of the patterns, not a verified reproduction of a proprietary Traders Family rulebook.
 
-| Regime | Classification rule |
+### 2.2 Baseline regime classifier
+
+| Regime | Rule |
 |---|---|
 | Bullish | ADX(14) ≥ 20 and EMA(50) > EMA(200) |
 | Bearish | ADX(14) ≥ 20 and EMA(50) < EMA(200) |
 | Sideways | ADX(14) < 20 |
-| Unclassified | Indicator warm-up values are unavailable |
+| Unclassified | Required indicator values unavailable |
 
-EMA alignment defines direction, while ADX estimates trend strength. ADX is not directional by itself. The indicator settings are fixed baseline parameters, not optimized on the full history.
+Regime is assigned using indicator values available at the setup's `signal_date`. The pending entry order starts on the following H1 bar. EMA alignment indicates directional bias; ADX estimates trend strength but does not determine direction.
 
-Each N-Method trade is assigned the regime observed on its `signal_date` (the setup-confirmation date), not the entry or exit date. The pending order becomes active on the next daily candle.
+### 2.3 Parameter consistency across timeframes
 
-## Results
+The numeric settings were kept identical to the D1 baseline, rather than rescaled:
 
-### Regime distribution
+| Parameter | Setting | H1 interpretation |
+|---|---:|---|
+| Swing pivot left / right | 3 / 3 | 3 H1 bars on each side |
+| ATR | 14 | 14 H1 bars |
+| EMA | 50 / 200 | 50 / 200 H1 bars |
+| ADX | 14 | 14 H1 bars |
+| ADX threshold | 20 | Same numeric threshold |
+| Entry buffer | 0.05 ATR | Same numeric multiple |
+| Stop buffer | 0.05 ATR | Same numeric multiple |
+| Range tolerance | 0.50 ATR | Same numeric multiple |
+| Pending-order expiry | 20 bars | 20 H1 bars (roughly 20 market hours, not 20 days) |
+| Reward-to-risk | 2.0R | Same |
 
-| Regime | Daily bars | Share |
-|---|---:|---:|
-| Bullish | 2,099 | 40.20% |
-| Bearish | 1,255 | 24.04% |
-| Sideways | 1,771 | 33.92% |
-| Unclassified | 96 | 1.84% |
-| **Total** | **5,221** | **100.00%** |
+**Important:** identical bar counts do not represent identical calendar-time horizons across H1 and D1. This is a direct replication of the rule settings, not a time-normalized timeframe comparison.
 
-### Strategy performance by detected regime
+## 3. Results: unfiltered N-Method backtest
 
-`Net R` is the sum of trade R-multiples. `PF` is profit factor calculated from positive and negative R values. Small subgroups should be interpreted cautiously.
+| Strategy   |   Trades |   Win rate % |    Net R |   Profit factor (R) |   Avg R |   Max consecutive losses |
+|:-----------|---------:|-------------:|---------:|--------------------:|--------:|-------------------------:|
+| Bullish N  | 1302.000 |       33.564 |   -6.692 |               0.992 |  -0.005 |                   15.000 |
+| Bearish N  | 1227.000 |       29.666 | -156.684 |               0.823 |  -0.128 |                   17.000 |
+| Ranging N  |  417.000 |       36.691 |   41.985 |               1.159 |   0.101 |                    9.000 |
 
-| Strategy | Regime | Trades | Win rate | Net R | PF |
-|---|---|---:|---:|---:|---:|
-| Bullish N | Bullish | 30 | 33.3% | 0.00 | 1.00 |
-| Bullish N | Bearish | 16 | 37.5% | +1.87 | 1.18 |
-| Bullish N | Sideways | 26 | 53.8% | **+16.00** | **2.33** |
-| Bullish N | Unclassified | 2 | 50.0% | +1.00 | 2.00 |
-| Bearish N | Bullish | 20 | 30.0% | -3.08 | 0.78 |
-| Bearish N | Bearish | 13 | 30.8% | -1.00 | 0.89 |
-| Bearish N | Sideways | 23 | 26.1% | -6.37 | 0.65 |
-| Ranging N | Bullish | 4 | 50.0% | +2.00 | 2.00 |
-| Ranging N | Bearish | 3 | 33.3% | -1.97 | 0.01 |
-| Ranging N | Sideways | 9 | 33.3% | 0.00 | 1.00 |
+![Unfiltered strategy net R](assets/h1_unfiltered_net_r.png)
 
-### Unfiltered baseline vs. matched-regime filter
+### Cumulative performance over time
 
-The matched-regime filter retains Bullish N trades only in Bullish regimes, Bearish N only in Bearish regimes, and Ranging N only in Sideways regimes.
+The following equity-curve views show cumulative trade outcomes in R multiples (risk units), not cash profit or account percentage returns. The combined curves are illustrative trade-level aggregates; they are not portfolio simulations with shared capital, overlapping-position controls, or transaction costs.
 
-| Strategy | Selection | Trades | Win rate | Net R | PF |
-|---|---|---:|---:|---:|---:|
-| Bullish N | No regime filter | 74 | 41.9% | **+18.87** | **1.44** |
-| Bullish N | Matched regime only (Bullish) | 30 | 33.3% | 0.00 | 1.00 |
-| Bearish N | No regime filter | 56 | 28.6% | -10.44 | 0.75 |
-| Bearish N | Matched regime only (Bearish) | 13 | 30.8% | -1.00 | 0.89 |
-| Ranging N | No regime filter | 16 | 37.5% | +0.03 | 1.00 |
-| Ranging N | Matched regime only (Sideways) | 9 | 33.3% | 0.00 | 1.00 |
-| **All strategies** | **No regime filter** | **146** | **36.3%** | **+8.46** | **1.09** |
-| **All strategies** | **Matched regime only** | **52** | **32.7%** | **-1.00** | **0.97** |
+![Cumulative R by strategy](assets/h1_cumulative_r_by_strategy.png)
 
-## Key findings
+**Initial reading:** Bullish N was approximately breakeven before costs, Bearish N was materially negative, and Ranging N was positive in this historical sample. The Ranging N result is promising enough to investigate, but it is not validated and may be affected by sample period, parameter choices, and costs.
 
-1. **The matched-regime filter did not improve aggregate results in this sample.** Total performance moved from +8.46R (146 trades, PF 1.09) without a filter to -1.00R (52 trades, PF 0.97) with the matched-regime filter.
-2. **Bullish N's strongest observed subgroup was Sideways.** It produced +16.00R across 26 trades, with a 53.8% win rate and 2.33 profit factor. This is a useful research hypothesis—not evidence that the setup should be traded only in Sideways conditions.
-3. **Bearish N was negative across all three classified regimes** in this sample. It deserves separate review before being included in a combined strategy.
-4. **Ranging N was approximately breakeven overall.** Its regime-specific samples are very small, so the observed PF values are unstable.
+## 4. Regime distribution
 
-The counter-intuitive Bullish N / Sideways result may indicate that the setup is confirmed during low directional strength and then captures a subsequent breakout. That explanation is a hypothesis and requires a separate test.
+| Regime       |   Bars |   Share % |
+|:-------------|-------:|----------:|
+| Bullish      |  37711 |    37.711 |
+| Bearish      |  31640 |    31.640 |
+| Sideways     |  30461 |    30.461 |
+| Unclassified |    188 |     0.188 |
 
-## Limitations and risk controls
+![Regime distribution](assets/h1_regime_distribution.png)
 
-- The classifier is intentionally basic and lagging. EMA and ADX can react after a market transition has started.
-- The strategy backtest uses daily OHLC bars; intrabar order of events is unknown. Conservative stop-first handling is used when SL and TP are both touched in one bar.
-- Spread, commissions, swap, and realistic slippage are not included. Results may deteriorate after transaction costs.
-- `OPEN_AT_END` trades are marked to market at the last available close and are not realized closed-trade outcomes.
-- Strategy variants are backtested separately. The aggregate table does not enforce shared capital, simultaneous exposure limits, or portfolio-level risk constraints; overlapping trades may overstate deployable performance.
-- Some regime/strategy combinations have very few observations.
-- All results are in-sample. The analysis must not be presented as out-of-sample validation.
-- The proprietary N-Method rulebook has not been independently verified; the code documents its assumptions explicitly.
+## 5. Strategy performance by detected regime
 
-## Next steps
+| Strategy   | Regime       |   Trades |   Win rate % |   Net R |   Profit factor (R) |   Avg R |
+|:-----------|:-------------|---------:|-------------:|--------:|--------------------:|--------:|
+| Bullish N  | Bullish      |  447.000 |       35.794 |  29.536 |               1.102 |   0.066 |
+| Bullish N  | Bearish      |  434.000 |       30.415 | -43.719 |               0.858 |  -0.101 |
+| Bullish N  | Sideways     |  419.000 |       34.368 |   6.491 |               1.023 |   0.015 |
+| Bullish N  | Unclassified |    2.000 |       50.000 |   1.000 |               2.000 |   0.500 |
+| Bearish N  | Bullish      |  446.000 |       27.803 | -81.805 |               0.752 |  -0.183 |
+| Bearish N  | Bearish      |  363.000 |       28.650 | -57.410 |               0.782 |  -0.158 |
+| Bearish N  | Sideways     |  417.000 |       32.614 | -16.468 |               0.943 |  -0.039 |
+| Bearish N  | Unclassified |    1.000 |        0.000 |  -1.000 |               0.000 |  -1.000 |
+| Ranging N  | Bullish      |  142.000 |       33.803 |   1.985 |               1.021 |   0.014 |
+| Ranging N  | Bearish      |  107.000 |       36.449 |  10.000 |               1.147 |   0.093 |
+| Ranging N  | Sideways     |  167.000 |       39.521 |  31.000 |               1.307 |   0.186 |
+| Ranging N  | Unclassified |    1.000 |        0.000 |  -1.000 |               0.000 |  -1.000 |
 
-1. Add chronological train/test splits or walk-forward evaluation.
-2. Re-test the Bullish N / Sideways hypothesis on unseen data.
-3. Add realistic spread, commission, swap, and slippage assumptions for the intended broker.
-4. Evaluate concurrent positions and portfolio-level risk limits.
-5. Compare the baseline classifier with more advanced models only after the baseline is validated.
+![Net R by strategy and regime](assets/h1_net_r_by_regime.png)
 
-## Project structure
+Selected observations:
+
+- **Bullish N:** positive only in the Bullish regime (+29.54R across 447 trades); it lost money in the Bearish regime.
+- **Bearish N:** negative in all three regimes, with the largest loss in the Bullish regime. This is the weakest variant in the current H1 experiment.
+- **Ranging N:** generated its strongest conditional result in Sideways conditions (+31.00R across 167 trades; PF 1.307). It was also positive in the Bearish regime.
+
+These are conditional historical associations, not causal evidence. The regime labels are lagging and the results do not show that regime classification itself caused the performance difference.
+
+## 6. Context versus the earlier D1 baseline
+
+| Strategy | Timeframe | Trades | Win rate % | Net R | Profit factor (R) |
+|---|---:|---:|---:|---:|---:|
+| Bullish N | D1 | 74 | 41.89 | +18.87 | 1.438 |
+| Bullish N | H1 | 1,302 | 33.56 | -6.69 | 0.992 |
+| Bearish N | D1 | 56 | 28.57 | -10.44 | 0.748 |
+| Bearish N | H1 | 1,227 | 29.67 | -156.68 | 0.823 |
+| Ranging N | D1 | 16 | 37.50 | +0.03 | 1.003 |
+| Ranging N | H1 | 417 | 36.69 | +41.99 | 1.159 |
+| All strategies | D1 | 146 | 36.30 | +8.46 | 1.090 |
+| All strategies | H1 | 2,946 | 32.38 | -121.39 | 0.940 |
+
+The H1 experiment generated many more signals, but its total unfiltered result is substantially weaker, mainly due to the Bearish N variant. **This is not a clean apples-to-apples timeframe comparison:** bar-based settings were held numerically constant, so a 20-bar expiry is 20 hours on H1 but 20 daily bars on D1; pivot and indicator lookbacks also represent different elapsed time. The D1 and H1 source samples also have slightly different start/end timestamps.
+
+A separate time-normalized H1 experiment would be needed to compare comparable calendar-time horizons.
+
+## 7. Regime filter versus original unfiltered results
+
+The matched-regime mapping was fixed in advance for this comparison: Bullish N → Bullish; Bearish N → Bearish; Ranging N → Sideways.
+
+| Strategy       | Selection                      |   Trades |   Win rate % |    Net R |   Profit factor (R) |   Avg R |
+|:---------------|:-------------------------------|---------:|-------------:|---------:|--------------------:|--------:|
+| Bullish N      | No regime filter               | 1302.000 |       33.564 |   -6.692 |               0.992 |  -0.005 |
+| Bullish N      | Matched regime only (Bullish)  |  447.000 |       35.794 |   29.536 |               1.102 |   0.066 |
+| Bearish N      | No regime filter               | 1227.000 |       29.666 | -156.684 |               0.823 |  -0.128 |
+| Bearish N      | Matched regime only (Bearish)  |  363.000 |       28.650 |  -57.410 |               0.782 |  -0.158 |
+| Ranging N      | No regime filter               |  417.000 |       36.691 |   41.985 |               1.159 |   0.101 |
+| Ranging N      | Matched regime only (Sideways) |  167.000 |       39.521 |   31.000 |               1.307 |   0.186 |
+| All strategies | No regime filter               | 2946.000 |       32.383 | -121.391 |               0.940 |  -0.041 |
+| All strategies | Matched regime only            |  977.000 |       33.777 |    3.125 |               1.005 |   0.003 |
+
+**Aggregate comparison:** the matched filter reduced the valid trade count from 2,946 to 977. Average R per trade moved from -0.041R to +0.003R and profit factor moved from 0.940 to 1.005. The filtered aggregate was only marginally positive before costs.
+
+![Cumulative R: no regime filter vs matched-regime filter](assets/h1_cumulative_r_filter_comparison.png)
+
+Interpretation by strategy:
+
+- Bullish N improved from -6.69R unfiltered to +29.54R in the matched Bullish subset.
+- Bearish N remained negative in the matched Bearish subset (-57.41R).
+- Ranging N had a higher average R per trade in Sideways conditions, but its matched subset contained fewer trades and lower total Net R than the unfiltered strategy.
+
+The filter is a useful research hypothesis, not a validated improvement. Net R totals should be interpreted alongside trade count, average R, profit factor, capital constraints, and execution costs.
+
+## 8. Key limitations
+
+1. **Exploratory in-sample results:** the current analysis is historical and has not been validated on unseen data.
+2. **H1 costs:** spread, commission, swap, and realistic slippage are not included. These can materially change H1 results.
+3. **OHLC execution assumptions:** if stop and target are both touched in one H1 candle, stop-loss is assumed first. For a range OCO setup where both boundaries are touched in the same bar, the signal is marked ambiguous and excluded.
+4. **Gap fills:** entry and exit logic accounts for open-price gaps, but not all broker execution details.
+5. **Independent strategy streams:** the three variants are backtested separately. Their combined results do not enforce a shared capital pool, simultaneous position limits, or portfolio-level risk controls.
+6. **Not a full risk-adjusted portfolio analysis:** Net R, average R, and profit factor are trade-level performance diagnostics. Sharpe/Sortino ratios, portfolio drawdown, margin usage, and synchronized portfolio equity have not been evaluated under shared exposure constraints.
+6. **Open-at-end trades:** these are marked to the final close and are not realized closed trades.
+7. **Model lag:** EMA and ADX are lagging indicators and can identify regime changes late.
+8. **Parameter horizon:** keeping the same number of bars on H1 and D1 changes the calendar-time horizon substantially.
+9. **Data provenance:** the input vendor and timezone were not stated in the supplied CSV; verify data licensing before public redistribution.
+
+## 9. Recommended next steps
+
+1. Freeze the current baseline rules and parameters.
+2. Run chronological out-of-sample / walk-forward validation; do not tune on the final holdout period.
+3. Add broker-specific spread, commission, swap, and slippage assumptions.
+4. Test the strategy with shared portfolio exposure and overlapping-trade constraints.
+5. Forward-test the locked rules on new H1 bars before considering live deployment.
+
+The next research milestone is not to optimize the regime thresholds on this full sample. It is to establish whether the current regime classification improves performance on observations that were not used to design the rules.
+
+## 10. Repository structure
 
 ```text
-.
+XAUUSD_H1_Quant_Research_Portfolio/
 ├── README.md
 ├── requirements.txt
 ├── .gitignore
 ├── data/
-│   ├── README.md
-│   └── XAUUSD_D1.csv              # local source data; ignored by Git by default
+│   ├── XAUUSD_H1.csv
+│   └── README.md
 ├── notebooks/
-│   ├── 01_N_Method_Backtest.ipynb
-│   └── 02_Baseline_Regime_Analysis.ipynb
-└── outputs/
-    ├── XAUUSD_D1_N_method_trades.csv
-    ├── XAUUSD_D1_N_method_summary.csv
-    ├── XAUUSD_D1_regime_distribution.csv
-    ├── XAUUSD_D1_regime_performance.csv
-    ├── XAUUSD_D1_regime_filter_vs_baseline.csv
-    └── XAUUSD_D1_N_method_trades_with_regime.csv
+│   ├── 01_N_Method_Backtest_H1.ipynb
+│   └── 02_Baseline_Regime_Analysis_H1.ipynb
+├── outputs/
+│   ├── XAUUSD_H1_N_method_summary.csv
+│   ├── XAUUSD_H1_N_method_trades.csv
+│   ├── XAUUSD_H1_N_method_trades_with_regime.csv
+│   ├── XAUUSD_H1_regime_distribution.csv
+│   ├── XAUUSD_H1_regime_performance.csv
+│   └── XAUUSD_H1_regime_filter_vs_baseline.csv
+└── assets/
+    ├── h1_unfiltered_net_r.png
+    ├── h1_regime_distribution.png
+    └── h1_net_r_by_regime.png
 ```
 
-## Run locally
+## 11. Reproducibility
+
+Recommended environment: Python 3.10+.
 
 ```bash
-# 1. Create and activate an isolated environment
-python3 -m venv .venv
-source .venv/bin/activate           # macOS / Linux
-# .venv\Scripts\activate        # Windows PowerShell
-
-# 2. Install dependencies
+python -m venv .venv
+source .venv/bin/activate  # macOS / Linux
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
-
-# 3. Open the notebooks
-jupyter lab
 ```
 
-Run `01_N_Method_Backtest.ipynb` first, then run `02_Baseline_Regime_Analysis.ipynb`. Both notebooks read the source CSV from `data/` and write their outputs to `outputs/`.
+Open the project in VS Code or Jupyter and run notebooks in order:
 
-## GitHub publishing note
+1. `notebooks/01_N_Method_Backtest_H1.ipynb`
+2. `notebooks/02_Baseline_Regime_Analysis_H1.ipynb`
 
-The raw price dataset is excluded from commits by `.gitignore`. Keep it local unless you have explicit permission to redistribute it. The derived CSV outputs and notebooks can be published, but make sure they do not contain any information you are not authorized to share.
+The notebooks read the CSV from `data/` and write generated tables to `outputs/`.
+
+## Disclaimer
+
+This repository is for educational and quantitative research purposes only. It is not investment advice, a signal service, or a recommendation to trade. Backtested performance is hypothetical and does not guarantee future results.

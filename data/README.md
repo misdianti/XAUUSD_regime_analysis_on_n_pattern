@@ -1,9 +1,5 @@
 # Source data
 
-Place the daily XAUUSD OHLCV CSV in this folder as `XAUUSD_D1.csv`.
+`XAUUSD_H1.csv` is the supplied headerless OHLCV file. Columns are timestamp, open, high, low, close, and volume. The supplied file does not specify timezone or vendor volume semantics.
 
-Expected format: headerless columns in this order:
-
-`Date, Open, High, Low, Close, Volume`
-
-The project bundle includes a local copy of the data used for the analysis. The raw CSV is excluded by `.gitignore` by default because the original data source and redistribution rights should be checked before publishing it to a public GitHub repository. Only commit the raw dataset if you have the right to redistribute it, or replace it with a properly licensed/public dataset.
+Before publishing the raw CSV in a public GitHub repository, verify that the data provider's terms permit redistribution. The root `.gitignore` excludes `data/*.csv` by default. If redistribution is permitted, remove that ignore rule or explicitly force-add the file.
