@@ -1,0 +1,3 @@
+Method,Trades,Win rate %,Net R,Profit factor,Avg R,Max drawdown R,Ambiguous OCO
+"Notebook 04 sequence: simulate all setups, then filter trades",614,36.807817589576544,60.53570987455904,1.1545072342629576,0.09859236135921667,-24.43127750065332,0
+"Notebook 05: filter eligible setups first, then apply one slot per strategy",760,37.23684210526316,86.77979291778107,1.1803939640493628,0.11418393804971193,-25.43127750065332,3

@@ -1,0 +1,7 @@
+Metric,Value
+Maximum simultaneous Bullish N positions,1
+Maximum simultaneous Ranging N positions,1
+Maximum combined open positions,2
+H1 bars with both strategies open,777
+H1 bars with at least one strategy open,19591
+Overlapping Bullish/Ranging trade pairs,69
