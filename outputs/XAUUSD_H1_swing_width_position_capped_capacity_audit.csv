@@ -1,0 +1,5 @@
+Swing bars each side,Max concurrent Bullish N,Max concurrent Ranging N,Max combined positions,H1 bars with both strategies open,Overlapping Bullish/Ranging trade pairs,Bullish cap passed,Ranging cap passed,Combined cap passed
+2,1,1,2,1098,100,True,True,True
+3,1,1,2,777,69,True,True,True
+4,1,1,2,798,43,True,True,True
+5,1,1,2,355,18,True,True,True
